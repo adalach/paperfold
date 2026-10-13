@@ -92,6 +92,19 @@ PaperFold 用你已有的模型，不需要注册账号。启动时它会自己�
 | 什么都还没有 | 点 **OpenRouter 一键授权**。授权一次，免费模型马上可用。 |
 | 一个 API key | **设置 › 添加供应商**：Anthropic、OpenAI、DeepSeek、通义千问、智谱 GLM、Kimi、MiniMax、Google、Ollama，或任何 OpenAI 兼容接口。 |
 
+## 从你的 Zotero 文献库阅读
+
+点 **Zotero 文献库**，按分类浏览你自己的文献库或你加入的群组库，任何一篇都能按五个层级阅读。PaperFold 读取的是你电脑上的 Zotero 应用，和引文插件的方式一样：不需要账号和密钥，不向 Zotero 的服务器发送任何东西，也不会改动你的文献库。
+
+1. 在 Zotero 7 里打开：**设置 › 高级 › 允许此计算机上的其他应用程序与 Zotero 通信**。
+2. 只有 PDF 的条目需要 [GROBID](https://github.com/kermitt2/grobid)，它在你的电脑上把 PDF 读成章节、段落、图表说明和参考文献：
+
+   ```bash
+   docker run --rm -p 8070:8070 grobid/grobid:0.9.1-crf
+   ```
+
+arXiv 上的条目从 arXiv 读取；其他条目从 PDF 读取，PDF 留在 Zotero 存放的位置，点 **原文** 即可对照。详见 [docs/zotero.md](docs/zotero.md)。
+
 ## 阅读时的操作
 
 | 操作 | 作用 |

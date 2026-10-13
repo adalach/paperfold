@@ -27,7 +27,7 @@ ANTHROPIC_PRESET = {"id": "anthropic", "name": "Anthropic", "base": "https://api
 
 
 def load_settings():
-    s = {"model": None, "efforts": {}, "providers": [], "use_thoughtdag_env": False}
+    s = {"model": None, "efforts": {}, "providers": [], "use_thoughtdag_env": False, "zotero": {}}
     if not SETTINGS.exists() and (OLD_HOME / "settings.json").exists():   # from before the name PaperFold: copied, kept
         SETTINGS.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(OLD_HOME / "settings.json", SETTINGS)

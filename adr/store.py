@@ -29,10 +29,11 @@ OLD_HOME = Path.home() / ".dynamic-reader"   # where they were kept before the n
 
 # a paper's id: an arXiv id; or, stored when it was first opened, a document from this computer (local.py:
 # md-<title words>-<hash>), a paper from Europe PMC (epmc.py: pmc<n>, ppr<n>) or a preprint from bioRxiv or medRxiv
-# (biorxiv.py: biorxiv-<DOI suffix>) or a Wikipedia article (wiki.py: wiki-<language>-<page id>)
+# (biorxiv.py: biorxiv-<DOI suffix>) or a Wikipedia article (wiki.py: wiki-<language>-<page id>) or an item of a
+# Zotero library read from its PDF (zotero.py: zotero-g<group id>-<item key> or zotero-u-<item key>)
 ARXIV_ID = re.compile(r"\d{4}\.\d{4,5}")
 IMPORTED_ID = re.compile(r"md-[a-z0-9]+(?:-[a-z0-9]+)*|pmc\d{4,9}|ppr\d{4,9}|(?:biorxiv|medrxiv)-[0-9.]{3,40}|wiki-[a-z][a-z-]{1,15}-\d{1,10}"
-                         r"|gh-[a-z0-9-]{1,39}--[a-z0-9._-]{1,100}")
+                         r"|gh-[a-z0-9-]{1,39}--[a-z0-9._-]{1,100}|zotero-(?:g\d{1,10}|u)-[a-z0-9]{8}")
 
 
 def valid_id(pid):
@@ -48,9 +49,13 @@ def resolve(ref):
     link; a bioRxiv or medRxiv link or DOI (read from the server itself: its own text, its newest version); a PubMed
     Central or Europe PMC preprint id or link; any other DOI, looked up in Europe PMC (ValueError("no-fulltext") when
     it holds no open full text); a Wikipedia article's link (ValueError("no-article") when there is no such article);
-    a GitHub repository's link (its README; read when the paper is generated)."""
-    from . import biorxiv, epmc, github, wiki   # (they store through this module)
+    a GitHub repository's link (its README; read when the paper is generated); an item of a Zotero library,
+    "zotero:groups/<id>/<item key>" (its arXiv paper, else its PDF, else its DOI: zotero.resolve)."""
+    from . import biorxiv, epmc, github, wiki, zotero   # (they store through this module)
     ref = (ref or "").strip()
+    lib, key = zotero.ref_of(ref)
+    if lib:
+        return zotero.resolve(lib, key)
     if ref.startswith("md-"):
         if not (IMPORTED_ID.fullmatch(ref) and (pdir(ref) / "meta.json").exists()):
             raise ValueError(f"no such document: {ref}")

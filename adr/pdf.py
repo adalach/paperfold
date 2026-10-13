@@ -1,7 +1,8 @@
 """A paper's original typeset pages, for the reader's side-by-side view: arXiv's PDF of the version read, the
 publisher's PDF that PubMed Central keeps in its open data, a bioRxiv or medRxiv preprint's own, or (for a preprint read
 through Europe PMC) the preprint server's. Fetched once, when the reader first asks, and kept beside the paper as
-source.pdf. Wikipedia articles and Markdown files have none. None of these servers lets a page read the file itself
+source.pdf. Wikipedia articles and Markdown files have none. A paper from a Zotero library has the PDF it was read
+from, left where Zotero keeps it (zotero.pdf_file). None of these servers lets a page read the file itself
 (no CORS), and their article pages may not be framed, so the app fetches it."""
 import json
 import re
@@ -39,7 +40,7 @@ def candidates(pid, meta):
 
 def has_source(pid):
     """Whether the paper is of a kind that can have one (the reader shows its button only then)."""
-    return bool(re.fullmatch(r"\d{4}\.\d{4,5}|pmc\d+|ppr\d+|(biorxiv|medrxiv)-[0-9.]+", pid))
+    return bool(re.fullmatch(r"\d{4}\.\d{4,5}|pmc\d+|ppr\d+|(biorxiv|medrxiv)-[0-9.]+|zotero-[a-z0-9-]+", pid))
 
 
 def path(pid):
@@ -49,6 +50,9 @@ def path(pid):
     if f.exists():
         return f
     meta = json.loads((d / "meta.json").read_text())
+    if meta.get("zotero"):
+        from . import zotero
+        return zotero.pdf_file(meta["zotero"])
     with _lock:
         if f.exists():
             return f

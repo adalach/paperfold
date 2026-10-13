@@ -29,6 +29,8 @@
   let jobs = BOOT.jobs || [];
   let modelName = BOOT.model || '';       // the model generations use, as the settings name it
   const t = () => I18N.t(uiLang);
+  // an item picked in the Zotero library: on the landing it is generated there; elsewhere it goes there to be (?start=)
+  let pickItem = (ref, title) => { location.href = `/?start=${encodeURIComponent(ref)}&t=${encodeURIComponent(title)}`; };
 
   // ── sidebar ──────────────────────────────────────────────────────────
   const side = document.getElementById('sidebar');
@@ -61,8 +63,8 @@
         (j ? stopBtn(j, T) : `<button type="button" class="sb-del" data-del="${p.id}" title="${esc(T.del_paper)}" aria-label="${esc(T.del_paper)}">×</button>`) + '</div>';
     };
     // papers, Wikipedia articles, GitHub READMEs and documents of one's own, each under its name when there is more than one kind
-    const kindOf = (id) => (/^wiki-/.test(id) ? 'wiki' : /^gh-/.test(id) ? 'gh' : /^md-/.test(id) ? 'doc' : 'paper');
-    const groups = [['paper', T.papers], ['wiki', T.g_wiki], ['gh', 'GitHub'], ['doc', T.g_docs]]
+    const kindOf = (id) => (/^wiki-/.test(id) ? 'wiki' : /^gh-/.test(id) ? 'gh' : /^md-/.test(id) ? 'doc' : /^zotero-/.test(id) ? 'zotero' : 'paper');
+    const groups = [['paper', T.papers], ['zotero', T.g_zotero], ['wiki', T.g_wiki], ['gh', 'GitHub'], ['doc', T.g_docs]]
       .map(([k, name]) => [name, papers.filter((p) => kindOf(p.id) === k)]).filter(([, ps]) => ps.length);
     const listed_ = groups.length > 1
       ? groups.map(([name, ps]) => `<div class="sb-group">${esc(name)}</div>${ps.map(item).join('')}`).join('')
@@ -81,7 +83,7 @@
       <a class="sb-new" href="/">＋ ${esc(T.new_paper)}</a>
       ${groups.length > 1 ? '' : `<div class="sb-label">${esc(groups.length ? groups[0][0] : T.papers)}</div>`}
       <nav class="sb-list">${pending.map(pend).join('')}${listed_ || (pending.length ? '' : `<div class="sb-empty">${esc(T.empty)}</div>`)}</nav>
-      <div class="sb-foot"><button type="button" class="sb-settings">⚙ ${esc(T.settings)}</button><div class="sb-model">${esc(modelLabel())}</div></div>`;
+      <div class="sb-foot"><button type="button" class="sb-zotero">${esc(T.z_lib)}</button><button type="button" class="sb-settings">⚙ ${esc(T.settings)}</button><div class="sb-model">${esc(modelLabel())}</div></div>`;
     // polled every second while something generates: drawn again only when it changed, and where it was scrolled to
     const busy = jobs.some(live);
     if (html === lastSidebar) { side.querySelector('.rail-open').classList.toggle('busy', busy); return; }
@@ -92,6 +94,7 @@
     side.querySelector('.sb-toggle').onclick = () => setCollapsed(true);
     side.querySelector('.rail-open').onclick = () => setCollapsed(false);
     side.querySelectorAll('.sb-settings, .rail-settings').forEach((b) => { b.onclick = openSettings; });
+    side.querySelector('.sb-zotero').onclick = () => openLibrary();
     side.querySelectorAll('.sb-del').forEach((b) => { b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); deletePaper(b.dataset.del); }; });
     side.querySelectorAll('.sb-stop').forEach((b) => { b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); stopJob(b.dataset.stop); }; });
     side.querySelectorAll('[data-resume]').forEach((a) => { a.onclick = (e) => { e.preventDefault(); resume(a.dataset.resume); }; });
@@ -178,7 +181,8 @@
   }
   const errText = (msg) => (msg === 'no-html' ? t().no_html : msg === 'bad-ref' ? t().bad_ref : msg === 'no-model' ? t().no_model
     : msg === 'not-markdown' || msg === 'empty' ? t().md_only : msg === 'no-fulltext' ? t().no_fulltext
-    : msg === 'no-readme' ? t().no_readme : msg === 'github-limit' ? t().github_limit : msg);
+    : msg === 'no-readme' ? t().no_readme : msg === 'github-limit' ? t().github_limit
+    : msg === 'no-pdf' ? t().no_pdf : msg === 'no-grobid' ? t().no_grobid : msg === 'not-running' ? t().z_off : msg === 'api-off' ? t().z_api_off : msg);
 
   // ── on a reader page: generate a language, or regenerate the current one ──
   if (PAPER) {
@@ -279,6 +283,7 @@
     document.getElementById('go-t').textContent = T.generate;
     document.getElementById('sources').textContent = T.sources;
     document.getElementById('dropzone-t').textContent = T.drop_zone;
+    document.getElementById('zlib-open-t').textContent = T.z_lib;
     document.getElementById('open-settings').textContent = T.settings;
     document.getElementById('model-label').textContent = modelLabel();
     renderConnect();
@@ -374,6 +379,9 @@
         start(r.paper, r.title);
       } catch (x) { fail(errText(x.message)); }
     }
+    // an item of the Zotero library, picked in its dialog, is generated here like a pasted link
+    pickItem = (ref, title) => { err.hidden = true; if (!modelName) { fail(t().no_model); return; } start(ref, title); };
+    document.getElementById('zlib-open').onclick = () => openLibrary();
     const fileIn = document.getElementById('file'), zone = document.getElementById('dropzone');
     zone.onclick = () => fileIn.click();
     fileIn.onchange = () => { openFile(fileIn.files[0]); fileIn.value = ''; };
@@ -581,6 +589,96 @@
     // the startup scan may still be running: show what it finds as it lands
     const wait = async () => { if (!dlg.isConnected) return; if (data.scanning) { await new Promise((r) => setTimeout(r, 800)); update(await api('/api/models')); wait(); } };
     wait();
+  }
+
+  // ── a Zotero library (zotero.py): its collections as Zotero shows them, each item read as a paper ──
+  async function openLibrary() {
+    const dlg = h('dialog', 'settings zlib'); document.body.append(dlg);
+    const COL = 'pf-zotero-col';
+    let st = null, cols = [], items = null, col = store.get(COL) || '', query = '', opened = new Set(), timer = null, seq = 0;
+    const q = (sel) => dlg.querySelector(sel);
+    const lib = () => (st && st.library) || '';
+    async function load() {
+      st = await api('/api/zotero').catch((x) => ({ ok: false, error: x.message, libraries: [] }));
+      cols = [];
+      if (st.ok && lib()) {
+        cols = await api(`/api/zotero/collections?lib=${encodeURIComponent(lib())}`).catch(() => []);
+        if (col && !cols.some((c) => c.key === col)) col = '';
+        // the chosen collection's parents open, so it shows in the tree
+        for (let c = cols.find((x) => x.key === col); c && c.parent; c = cols.find((x) => x.key === c.parent)) opened.add(c.parent);
+      }
+      render(); list();
+    }
+    async function list() {
+      items = null; renderItems();
+      if (!st.ok || !lib()) return;
+      const mine = ++seq;
+      const qs = new URLSearchParams({ lib: lib(), collection: query ? '' : col, q: query });
+      const got = await api(`/api/zotero/items?${qs}`).catch(() => []);
+      if (mine === seq) { items = got; renderItems(); }
+    }
+    function tree(parent) {
+      return cols.filter((c) => c.parent === parent).map((c) => {
+        const kids = cols.some((x) => x.parent === c.key), open = opened.has(c.key);
+        return `<li><div class="zl-col${c.key === col && !query ? ' on' : ''}" data-col="${c.key}">` +
+          `<button type="button" class="zl-tw" data-tw="${c.key}"${kids ? '' : ' disabled'}>${kids ? (open ? '▾' : '▸') : ''}</button>` +
+          `<span>${esc(c.name)}</span></div>${kids && open ? `<ul>${tree(c.key)}</ul>` : ''}</li>`;
+      }).join('');
+    }
+    function render() {
+      const T = t();
+      const libs = (st.libraries || []).map((l) => `<option value="${esc(l.id)}"${l.id === lib() ? ' selected' : ''}>${esc(l.name)}</option>`).join('');
+      const notes = !st.ok ? `<p class="st-note warn">${esc(st.error === 'api-off' ? T.z_api_off : T.z_off)}</p>`
+        : !st.grobid ? `<div class="zl-grobid"><p class="st-note">${esc(T.z_grobid_off)}</p><code>docker run --rm -p 8070:8070 grobid/grobid:0.9.1-crf</code></div>` : '';
+      dlg.innerHTML = `<div class="st zlb"><div class="zl-head"><h2>${esc(T.z_lib)}</h2>
+          ${st.ok ? `<select class="zl-lib">${lib() ? '' : `<option value="" selected disabled>${esc(T.z_pick)}</option>`}${libs}</select>` : ''}
+          <button type="button" class="zl-x" aria-label="${esc(T.st_close)}">×</button></div>${notes}
+        ${st.ok && lib() ? `<input class="st-search zl-q" type="search" placeholder="${esc(T.z_search)}" value="${esc(query)}">
+          <div class="zl-body"><nav class="zl-tree"><div class="zl-col${!col && !query ? ' on' : ''}" data-col=""><span>${esc(T.z_all)}</span></div><ul>${tree('')}</ul></nav>
+          <div class="zl-items"></div></div>` : ''}</div>`;
+      q('.zl-x').onclick = () => dlg.close();
+      const ls = q('.zl-lib');
+      if (ls) ls.onchange = async () => { st = await api('/api/zotero/settings', { library: ls.value }); col = ''; store.set(COL, ''); load(); };
+      const box = q('.zl-q');
+      if (box) box.oninput = () => { clearTimeout(timer); timer = setTimeout(() => { query = box.value.trim(); renderTree(); list(); }, 300); };
+      wireTree();
+      renderItems();
+    }
+    function renderTree() { const n = q('.zl-tree'); if (!n) return; n.innerHTML = `<div class="zl-col${!col && !query ? ' on' : ''}" data-col=""><span>${esc(t().z_all)}</span></div><ul>${tree('')}</ul>`; wireTree(); }
+    function wireTree() {
+      dlg.querySelectorAll('.zl-col').forEach((n) => { n.onclick = () => {
+        col = n.dataset.col; store.set(COL, col); query = ''; if (q('.zl-q')) q('.zl-q').value = ''; renderTree(); list();
+      }; });
+      dlg.querySelectorAll('.zl-tw').forEach((b) => { b.onclick = (e) => {
+        e.stopPropagation(); if (opened.has(b.dataset.tw)) opened.delete(b.dataset.tw); else opened.add(b.dataset.tw); renderTree();
+      }; });
+    }
+    function renderItems() {
+      const box = q('.zl-items');
+      if (!box) return;
+      const T = t();
+      if (items === null) { box.innerHTML = '<p class="st-note">…</p>'; return; }
+      if (!items.length) { box.innerHTML = `<p class="st-note">${esc(T.z_none)}</p>`; return; }
+      box.innerHTML = items.map((it, i) => {
+        const who = it.authors.length > 2 ? `${it.authors[0]} et al.` : it.authors.join(', ');
+        const can = it.arxiv || it.pdf || it.doi;
+        const act = it.paper ? `<a class="zl-go" href="/p/${esc(it.paper)}">${esc(T.z_open)}</a>`
+          : can ? `<button type="button" class="zl-go primary" data-i="${i}">${esc(T.z_read)}</button>` : `<span class="zl-no">${esc(T.z_nopdf)}</span>`;
+        const tags = [it.arxiv ? 'arXiv' : '', it.pdf ? 'PDF' : ''].filter(Boolean).map((x) => `<em>${x}</em>`).join('');
+        return `<div class="zl-item"><div class="zl-tx"><div class="zl-t">${esc(it.title)}</div>` +
+          `<div class="zl-m">${esc([who, it.year].filter(Boolean).join(' · '))}${it.citekey ? ` <code>${esc(it.citekey)}</code>` : ''}${tags}</div></div>${act}</div>`;
+      }).join('');
+      box.querySelectorAll('button.zl-go').forEach((b) => { b.onclick = () => {
+        const it = items[+b.dataset.i];
+        dlg.close();
+        pickItem(`zotero:${lib()}/${it.key}`, it.title);
+      }; });
+    }
+    dlg.addEventListener('close', () => dlg.remove());
+    st = { ok: true, libraries: [], grobid: true };
+    dlg.innerHTML = '<div class="st zlb"><p class="st-note">…</p></div>';
+    dlg.showModal();
+    load();
   }
 
   renderSidebar();

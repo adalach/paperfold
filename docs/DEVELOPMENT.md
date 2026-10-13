@@ -218,6 +218,17 @@ become one bibliography the marks [1] point into. Stored as `papers/wiki-<langua
 the day it was read (`snapshot`, shown under the title and carried into the notes' exports: the article may have changed
 since), under CC BY-SA 4.0.
 
+A Zotero library (`zotero.py`, `tei.py`; set-up, privacy and limits in [zotero.md](zotero.md)): the landing's **Zotero library**, and
+the sidebar's, open the library chosen in it (the reader's own or a group) as Zotero shows it, its collections at the
+left and the items of the one chosen at the right, through Zotero Desktop's local API (`localhost:23119`, read only).
+An item is read from its arXiv paper when it has one; else from its PDF, which GROBID (`localhost:8070`, run by the
+reader: `docker run --rm -p 8070:8070 grobid/grobid:0.9.1-crf`) turns into TEI XML, written as semantic HTML by `tei.py`;
+else from its DOI in Europe PMC. Read from the PDF it is stored as `papers/zotero-g<group>-<item key>/` (the TEI as
+`source.tei.xml`), with Zotero's record (title, authors, date, DOI, citekey) as its meta; the PDF stays in Zotero's
+storage and the Original view finds it there by its attachment key. GROBID's consolidation is off, so nothing about
+the library leaves this computer. `papers/links.json` says which item became which paper, so the library marks what is
+open. Figures come out as their captions (GROBID leaves the pictures in the PDF) and formulas as their text.
+
 The model is still told it reads a paper, and the levels are made in English first: a document in another language
 is read with English levels over its own text. Making the levels in the document's language is the next step.
 
@@ -253,6 +264,8 @@ adr/jats.py     JATS XML → semantic HTML (PubMed Central, Europe PMC, bioRxiv,
 adr/epmc.py     papers from Europe PMC by PMC or PPR id, link or DOI (pmc…, ppr…)
 adr/biorxiv.py  preprints from bioRxiv and medRxiv, from their own JATS (biorxiv-…, medrxiv-…)
 adr/wiki.py     Wikipedia articles, any language edition (wiki-<lang>-<page id>)
+adr/zotero.py   a Zotero library through Zotero Desktop's local API; an item read from its PDF by GROBID (zotero-…)
+adr/tei.py      GROBID's TEI XML → semantic HTML
 adr/tokens.py   tokenizer, sentence splitter, LCS alignment
 adr/ladder.py   one model call per section; validation; written words aligned to source words for the morph
 adr/links.py    argument links, one call over the whole paper

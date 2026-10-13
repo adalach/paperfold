@@ -55,7 +55,10 @@ a:hover { text-decoration: underline; }
 /* the mark: ThoughtDAG's three colours in its order (solid violet, faded violet, branch orange) */
 svg .m1 { fill: var(--accent); } svg .m2 { fill: var(--accent); opacity: .4; } svg .m3 { fill: var(--warm); }
 .brand a { font-weight: 450; color: var(--muted); font-size: 13.5px; margin-left: 6px; white-space: nowrap; }
-.brand a.brand-home { display: flex; align-items: center; gap: 9px; font: inherit; color: var(--ink); margin: 0; text-decoration: none; }
+.brand a.brand-home { display: flex; align-items: center; gap: 9px; font: inherit; color: var(--ink); margin: 0; text-decoration: none; flex: none; }
+/* where the paper comes from: a long name (a Zotero citekey) is cut short rather than run under the buttons */
+#arxiv-link { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+html.compare .tagline { display: none; }   /* beside the PDF the bar is narrow: the paper's source before the motto */
 .tagline { color: var(--muted); font-size: 13.5px; white-space: nowrap; }
 .topbar { gap: 14px; }
 .brand { flex: 1; }

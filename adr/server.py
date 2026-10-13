@@ -24,6 +24,11 @@
   GET  /api/bridge             the ChatGPT bridge (127.0.0.1:10531): running and its models, or what starting it needs
   POST /api/bridge/start       start it detached (bridges.py)
   POST /api/openrouter/start   {back}: the OpenRouter consent URL (OAuth PKCE); GET /oauth/openrouter is its return
+  GET  /api/zotero             Zotero Desktop: running, its libraries, the one chosen, and whether GROBID runs (zotero.py)
+  GET  /api/zotero/collections ?lib=groups/<id>: the library's collections, each with its parent
+  GET  /api/zotero/items       ?lib=…&collection=<key>&q=…: its items, each with the paper it became, if any
+  POST /api/zotero/settings    {library?, grobid?, base?, data_dir?}
+                              an item is generated as any paper: POST /api/generate {paper: "zotero:groups/<id>/<key>"}
 
 Loopback only, and POSTs from other origins are refused. Settings and keys live in
 ~/.paperfold/settings.json (mode 600), never in the project folder, which may be synced or shared.
@@ -40,7 +45,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from . import agents, bridges, build, langs, llm, local, models, notes, pdf, pipeline, providers, store
+from . import agents, bridges, build, langs, llm, local, models, notes, pdf, pipeline, providers, store, zotero
 
 STATIC = {"app.js": "text/javascript", "app.css": "text/css", "reader.js": "text/javascript",
           "reader.css": "text/css", "i18n.js": "text/javascript"}
@@ -247,6 +252,19 @@ def make_handler(jobs):
                     if not f:   # with where the reader may open it, to drop it on the pane
                         return self.json({"error": "no-pdf", "open": pdf.where(m.group(1)) if pdf.has_source(m.group(1)) else None}, 404)
                     return self.send(200, f.read_bytes(), "application/pdf", cache="max-age=86400")
+                if u.path.startswith("/api/zotero"):
+                    q = {k: v[0] for k, v in parse_qs(u.query).items()}
+                    try:
+                        if u.path == "/api/zotero":
+                            return self.json(zotero.status())
+                        if u.path == "/api/zotero/collections":
+                            return self.json(zotero.collections(q.get("lib", "")))
+                        if u.path == "/api/zotero/items":
+                            return self.json(zotero.items(q.get("lib", ""), q.get("collection", ""), q.get("q", "")[:200]))
+                    except zotero.Off as e:   # Zotero closed, or its local API off: the app says which
+                        return self.json({"error": str(e)}, 503)
+                    except ValueError as e:
+                        return self.json({"error": str(e)}, 400)
                 if u.path == "/favicon.ico":
                     return self.send(204, b"", "image/x-icon")
                 self.json({"error": "not found"}, 404)
@@ -278,7 +296,9 @@ def make_handler(jobs):
                     try:
                         job = jobs.submit(body.get("paper", ""), lang, body.get("force"))
                     except ValueError as e:   # not a paper's reference, or (a DOI) none Europe PMC can read in full
-                        return self.json({"error": str(e) if str(e) in ("no-fulltext", "no-article") else "bad-ref"}, 400)
+                        return self.json({"error": str(e) if str(e) in ("no-fulltext", "no-article", "no-pdf") else "bad-ref"}, 400)
+                    except zotero.Off as e:
+                        return self.json({"error": str(e)}, 503)
                     return self.json(job)
                 if u.path == "/api/jobs/stop":
                     job = jobs.stop(body.get("id", ""))
@@ -381,6 +401,12 @@ def make_handler(jobs):
                         s["use_thoughtdag_env"] = bool(body["use_thoughtdag_env"])
                     models.save_settings(s)
                     return self.json(models_payload())
+                if u.path == "/api/zotero/settings":
+                    try:
+                        zotero.save_settings(**{k: body.get(k) for k in ("library", "grobid", "base", "data_dir")})
+                    except ValueError as e:
+                        return self.json({"error": str(e)}, 400)
+                    return self.json(zotero.status())
                 if u.path == "/api/settings/test":
                     schema = {"type": "object", "properties": {"ok": {"type": "boolean"}}, "required": ["ok"]}
                     try:

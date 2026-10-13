@@ -279,6 +279,7 @@
   function build() {
     const m = D.meta;
     const link = document.getElementById('arxiv-link');
+    link.title = sourceName(m);
     if (m.abs_url) { link.href = m.abs_url; link.textContent = `${sourceName(m)} ↗`; }
     else { link.removeAttribute('href'); link.textContent = sourceName(m); }
     docEl.append(paperHead);
@@ -2445,7 +2446,7 @@
   //    each paragraph found on it by its own words (the paper's language, whatever language it is read in). A click
   //    on a paragraph shows where it is on its page; reading on carries the pages along; a click on a page goes to its
   //    paragraph ──
-  const PDF_OK = !!D.app && /^(\d{4}\.\d{4,5}|pmc\d+|ppr\d+|(biorxiv|medrxiv)-[0-9.]+)$/.test(D.meta.id);
+  const PDF_OK = !!D.app && /^(\d{4}\.\d{4,5}|pmc\d+|ppr\d+|(biorxiv|medrxiv)-[0-9.]+|zotero-[a-z0-9-]+)$/.test(D.meta.id);   // pdf.has_source
   const CMP_KEY = 'pf-compare';
   const cmpBtn = h('button', 'cmpbtn');
   cmpBtn.type = 'button';
@@ -2487,7 +2488,7 @@
     x.type = 'button';
     x.setAttribute('aria-label', T[ui].close);
     pane.setAttribute('aria-label', T[ui].compare_tip);
-    const src = { pmc: 'PubMed Central', ppr: 'Preprint', biorxiv: 'bioRxiv', medrxiv: 'medRxiv' }[D.meta.id.match(/^[a-z]+/)?.[0]];
+    const src = { pmc: 'PubMed Central', ppr: 'Preprint', biorxiv: 'bioRxiv', medrxiv: 'medRxiv', zotero: 'Zotero' }[D.meta.id.match(/^[a-z]+/)?.[0]];
     title.textContent = src ? `${src} · PDF` : `arXiv · PDF ${D.meta.version || ''}`.trim();
     bar.append(title, count, x);
     pane.append(bar, scroller);

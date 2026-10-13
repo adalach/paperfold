@@ -6,7 +6,7 @@ so the same generation started again goes on from there.
 """
 import urllib.error
 
-from . import biorxiv, epmc, github, ladder, links, llm, models, store, translate, wiki
+from . import biorxiv, epmc, github, ladder, links, llm, models, store, translate, wiki, zotero
 from .fetch import fetch
 
 
@@ -31,6 +31,8 @@ def generate(ref, lang, cfg, force=False, jobs=4, progress=lambda *a: None, log=
             wiki.fetch(pid)
         elif pid.startswith("gh-"):
             github.fetch(pid)
+        elif pid.startswith("zotero-"):
+            zotero.fetch(pid, progress)
         d = store.pdir(pid)
     else:
         try:

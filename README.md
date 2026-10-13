@@ -92,6 +92,19 @@ PaperFold uses a model you already have, and there is no account to create. It l
 | Nothing yet | Click **OpenRouter in one click**. Authorize once, and free models are ready. |
 | An API key | **Settings › Add provider**: Anthropic, OpenAI, DeepSeek, Qwen, Zhipu GLM, Kimi, MiniMax, Google, Ollama, or any OpenAI-compatible endpoint. |
 
+## Read from your Zotero library
+
+Click **Zotero library** to browse your library, or a group you belong to, by its collections, and read any item at the five levels. PaperFold reads the Zotero app on your computer, as citation plugins do: no account, no key, nothing sent to Zotero's servers, and nothing in your library changed.
+
+1. In Zotero 7: **Settings › Advanced › Allow other applications on this computer to communicate with Zotero**.
+2. For items with only a PDF, start [GROBID](https://github.com/kermitt2/grobid), which reads a PDF into its sections, paragraphs, captions and references, on your computer:
+
+   ```bash
+   docker run --rm -p 8070:8070 grobid/grobid:0.9.1-crf
+   ```
+
+An item on arXiv is read from arXiv; any other from its PDF, which stays where Zotero keeps it and opens with **Original**. More in [docs/zotero.md](docs/zotero.md).
+
 ## In the reader
 
 | Do | To |
